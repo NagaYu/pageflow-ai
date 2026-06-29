@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>【デモ】社内ワークフローシステム</title>
+  <style>
+    body { font-family: -apple-system, "Hiragino Sans", sans-serif; background: #eef1f6; margin: 0; padding: 32px; color: #1f2937; }
+    .wrap { max-width: 680px; margin: 0 auto; }
+    h1 { font-size: 20px; }
+    .note { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+    .card { background: #fff; border: 1px solid #d6dbe3; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; }
+    h2 { font-size: 15px; border-left: 4px solid #4f6ef7; padding-left: 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; width: 160px; font-size: 13px; padding: 10px 8px; background: #f3f5f9; border: 1px solid #e2e6ee; }
+    td { padding: 8px; border: 1px solid #e2e6ee; }
+    input[type="text"], input[type="email"], input[type="tel"], input[type="date"],
+    input[type="number"], select, textarea { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid #c8cfdb; border-radius: 4px; font-size: 13px; }
+    textarea { min-height: 70px; }
+    button { background: #4f6ef7; color: #fff; border: none; border-radius: 6px; padding: 10px 22px; font-size: 14px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>社内ワークフローシステム（デモ）</h1>
+    <p class="note">PageFlow AI の動作確認用ページです。ポップアップの「⚡ 転記」「🧾 経費」から自動入力を試せます。</p>
+
+    <div class="card">
+      <h2>議事録・問い合わせ登録</h2>
+      <table>
+        <tr><th><label for="f-name">氏名</label></th><td><input type="text" id="f-name" name="name"></td></tr>
+        <tr><th><label for="f-company">会社名</label></th><td><input type="text" id="f-company" name="company"></td></tr>
+        <tr><th><label for="f-dept">部署</label></th><td><input type="text" id="f-dept" name="department"></td></tr>
+        <tr><th><label for="f-email">メールアドレス</label></th><td><input type="email" id="f-email" name="email"></td></tr>
+        <tr><th><label for="f-tel">電話番号</label></th><td><input type="tel" id="f-tel" name="tel"></td></tr>
+        <tr><th><label for="f-subject">件名</label></th><td><input type="text" id="f-subject" name="subject"></td></tr>
+        <tr><th><label for="f-body">内容</label></th><td><textarea id="f-body" name="body"></textarea></td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>経費精算 申請</h2>
+      <table>
+        <tr><th><label for="e-date">利用日</label></th><td><input type="date" id="e-date" name="expense_date"></td></tr>
+        <tr><th><label for="e-amount">金額</label></th><td><input type="number" id="e-amount" name="amount"></td></tr>
+        <tr><th><label for="e-vendor">支払先</label></th><td><input type="text" id="e-vendor" name="vendor"></td></tr>
+        <tr><th><label for="e-category">勘定科目</label></th><td>
+          <select id="e-category" name="category">
+            <option value="">選択してください</option>
+            <option>旅費交通費</option>
+            <option>会議費</option>
+            <option>接待交際費</option>
+            <option>消耗品費</option>
+            <option>通信費</option>
+            <option>新聞図書費</option>
+            <option>水道光熱費</option>
+            <option>地代家賃</option>
+            <option>雑費</option>
+          </select>
+        </td></tr>
+        <tr><th><label for="e-memo">備考</label></th><td><input type="text" id="e-memo" name="memo"></td></tr>
+      </table>
+    </div>
+
+    <button type="button">申請する（デモのため何も起きません）</button>
+  </div>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>PageFlow AI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" rx="6" fill="url(#g1)"/>
+        <path d="M6 12.5 L11 16 L18 7.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="24" y2="24">
+            <stop offset="0" stop-color="#6366f1"/>
+            <stop offset="1" stop-color="#a855f7"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div>
+        <h1>PageFlow AI</h1>
+        <p class="tagline">コピペ業務、ゼロへ。</p>
+      </div>
+    </div>
+    <button id="themeToggle" class="icon-btn" title="ライト/ダーク切替">🌙</button>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="mapper" role="tab">⚡ 転記</button>
+    <button class="tab" data-tab="expense" role="tab">🧾 経費</button>
+    <button class="tab" data-tab="dev" role="tab">🛠 開発</button>
+    <button class="tab" data-tab="calendar" role="tab">📅 予定</button>
+    <button class="tab tab-gear" data-tab="settings" role="tab" title="設定">⚙️</button>
+  </nav>
+
+  <main>
+    <!-- ================= SmartFormMapper ================= -->
+    <section id="tab-mapper" class="panel active">
+      <p class="hint">議事録やメールのテキストを貼り付けて、開いているページのフォームへ 1 クリック転記。</p>
+      <textarea id="mapperText" rows="7" placeholder="例)&#10;氏名: 山田太郎&#10;会社名: 株式会社サンプル&#10;メール: yamada@example.com&#10;件名: 定例打合せの議事録&#10;内容: 次回リリースは6/20に決定…"></textarea>
+      <div class="btn-row">
+        <button id="btnPaste" class="btn ghost">📋 クリップボード</button>
+        <button id="btnScan" class="btn ghost">🔍 フォーム検出</button>
+        <button id="btnMap" class="btn primary">⚡ 自動転記する</button>
+      </div>
+      <div id="mapperResult" class="result"></div>
+    </section>
+
+    <!-- ================= ExpensePilot ================= -->
+    <section id="tab-expense" class="panel">
+      <div id="dropZone" class="dropzone">
+        <div class="dz-icon">🧾</div>
+        <div class="dz-text"><strong>領収書 PDF / 画像</strong>をドラッグ＆ドロップ<br><span class="muted">クリックでファイル選択（画像は AI キー設定時に解析）</span></div>
+        <input type="file" id="fileInput" accept="application/pdf,image/png,image/jpeg,image/webp,image/gif,.txt" hidden>
+      </div>
+      <details class="alt-input">
+        <summary>またはレシートのテキストを貼り付け</summary>
+        <textarea id="receiptText" rows="4" placeholder="例)&#10;グリーンタクシー株式会社&#10;2026/06/09&#10;合計 ¥3,480"></textarea>
+        <button id="btnParseReceipt" class="btn ghost small">テキストを解析</button>
+      </details>
+
+      <div id="expenseForm" class="card hidden">
+        <h2>抽出結果（編集できます）</h2>
+        <div class="grid2">
+          <label>日付<input type="date" id="expDate"></label>
+          <label>金額<input type="number" id="expAmount" placeholder="3480"></label>
+        </div>
+        <label>支払先<input type="text" id="expVendor" placeholder="グリーンタクシー株式会社"></label>
+        <div class="grid2">
+          <label>勘定科目
+            <select id="expCategory">
+              <option>旅費交通費</option>
+              <option>会議費</option>
+              <option>接待交際費</option>
+              <option>消耗品費</option>
+              <option>通信費</option>
+              <option>新聞図書費</option>
+              <option>水道光熱費</option>
+              <option>地代家賃</option>
+              <option>雑費</option>
+            </select>
+          </label>
+          <label>備考<input type="text" id="expMemo" placeholder="客先訪問の移動"></label>
+        </div>
+        <button id="btnFillExpense" class="btn primary full">⚡ 経費精算フォームへ自動入力</button>
+      </div>
+      <div id="expenseResult" class="result"></div>
+    </section>
+
+    <!-- ================= DevCleanShortcut ================= -->
+    <section id="tab-dev" class="panel">
+      <div class="agent-status">
+        <span id="agentDot" class="dot"></span>
+        <span id="agentStatus">ローカルエージェント確認中…</span>
+        <button id="btnAgentRetry" class="btn ghost small">再接続</button>
+      </div>
+      <div class="card">
+        <h2>ワンクリック・クリーンアップ <span class="muted">(127.0.0.1:8765)</span></h2>
+        <div class="dev-row">
+          <input type="number" id="devPort" value="3000" min="1" max="65535" title="解放するポート番号">
+          <button id="btnPorts" class="btn">🔌 ポート解放</button>
+        </div>
+        <div class="btn-row">
+          <button id="btnDocker" class="btn">🐳 Docker 掃除</button>
+          <button id="btnCache" class="btn">🧹 キャッシュ削除</button>
+          <button id="btnAll" class="btn danger">🚀 全部実行</button>
+        </div>
+      </div>
+      <pre id="devLog" class="log" aria-live="polite">エージェント未接続。CHROME_EXTENSION_GUIDE.md の手順で
+local-agent/pageflow_agent.py を起動してください。</pre>
+    </section>
+
+    <!-- ================= CalendarBlocker ================= -->
+    <section id="tab-calendar" class="panel">
+      <p class="hint">今日のタスクと見積もり時間を入れると、空き時間に「作業時間」ブロックを提案します。</p>
+      <div class="card">
+        <div id="taskRows"></div>
+        <button id="btnAddTask" class="btn ghost small">＋ タスクを追加</button>
+        <div class="grid3 settings-row">
+          <label>開始<input type="time" id="calStart" value="09:00"></label>
+          <label>終了<input type="time" id="calEnd" value="18:00"></label>
+          <label class="lunch-label">昼休み
+            <span class="lunch-times">
+              <input type="time" id="calLunchStart" value="12:00">–<input type="time" id="calLunchEnd" value="13:00">
+            </span>
+          </label>
+        </div>
+        <details class="alt-input">
+          <summary>既存の予定を考慮（1 行 1 件）</summary>
+          <textarea id="calBusy" rows="3" placeholder="10:00-11:00 定例MTG&#10;15:30-16:00 1on1"></textarea>
+        </details>
+        <button id="btnSchedule" class="btn primary full">🔍 空き時間を探索</button>
+      </div>
+      <div id="scheduleResult" class="result"></div>
+      <button id="btnBookAll" class="btn primary full hidden">📅 すべてカレンダーにブロック確保</button>
+    </section>
+
+    <!-- ================= Settings ================= -->
+    <section id="tab-settings" class="panel">
+      <div class="card">
+        <h2>AI 設定（任意）</h2>
+        <p class="hint">Anthropic API キーを設定すると、領収書の<strong>画像・スキャン PDF</strong> も Claude が解析して自動入力できます。キーはこの端末の拡張ストレージにのみ保存されます。</p>
+        <label>Anthropic API キー
+          <input type="password" id="apiKey" placeholder="sk-ant-api03-...">
+        </label>
+        <div class="btn-row">
+          <button id="btnSaveKey" class="btn primary">保存</button>
+          <button id="btnClearKey" class="btn ghost">削除</button>
+        </div>
+        <p id="keyStatus" class="muted"></p>
+      </div>
+      <div class="card">
+        <h2>このツールについて</h2>
+        <p class="hint">PageFlow AI v1.0.0 — 同梱の <code>CHROME_EXTENSION_GUIDE.md</code> にインストール手順・デモ用サンプルテキスト・ローカルエージェントの起動方法をまとめています。</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span id="statusBar" class="status"></span>
+  </footer>
+
+  <script src="parser.js"></script>
+  <script src="pdf_extract.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

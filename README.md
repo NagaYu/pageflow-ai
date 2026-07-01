@@ -8,7 +8,7 @@
 [![manifest](https://img.shields.io/badge/Manifest-V3-blue)](PageFlowAI/manifest.json)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-[日本語ガイド](CHROME_EXTENSION_GUIDE.md) · [Privacy Policy](PRIVACY_POLICY.md)
+[Installation Guide](CHROME_EXTENSION_GUIDE.md) · [Privacy Policy](PRIVACY_POLICY.md)
 
 </div>
 
@@ -41,7 +41,7 @@
 2. Open `chrome://extensions` in Chrome and turn on **Developer mode** (top right)
 3. Click **"Load unpacked"** and select the `PageFlowAI` folder
 
-For detailed usage, demo sample text, and how to start the local agent, see **[CHROME_EXTENSION_GUIDE.md](CHROME_EXTENSION_GUIDE.md)** (Japanese).
+For detailed usage, demo sample text, and how to start the local agent, see **[CHROME_EXTENSION_GUIDE.md](CHROME_EXTENSION_GUIDE.md)**.
 
 ## AI analysis (optional)
 

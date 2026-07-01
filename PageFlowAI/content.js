@@ -1,38 +1,39 @@
 // PageFlow AI - content script
-// ポップアップから必要なときだけ chrome.scripting.executeScript で注入される。
-// ページ上のフォームを DOM 解析してラベルを推定し、与えられた key/value を
-// 最適なフィールドへ自動入力する（React 等の制御コンポーネントにも対応）。
+// Injected on demand via chrome.scripting.executeScript only when the popup
+// needs it. Analyzes the DOM of the current page to infer field labels and
+// auto-fills the given key/value pairs into the best-matching fields
+// (also handles controlled components such as React/Vue).
 
 (() => {
   'use strict';
   if (window.__pageflowAI) return;
   window.__pageflowAI = true;
 
-  // ラベル同義語グループ（日本語の社内システム頻出語を優先）
+  // Label synonym groups for common business-form fields
   const GROUPS = {
-    name: ['氏名', '名前', 'お名前', '担当者', '担当者名', '申請者', 'フルネーム', 'name', 'your-name', 'fullname', 'username'],
-    company: ['会社名', '会社', '企業名', '法人名', '所属', '組織', '団体名', '貴社名', 'company', 'organization', 'corp'],
-    department: ['部署', '部門', '所属部署', '課', 'department', 'division'],
-    email: ['メールアドレス', 'メール', 'email', 'mail', 'e-mail', 'eメール'],
-    phone: ['電話番号', '電話', 'tel', 'phone', '携帯', '携帯番号', '連絡先'],
-    date: ['日付', '日時', '利用日', '実施日', '開催日', '購入日', '支払日', '発生日', '申請日', 'date'],
-    amount: ['金額', '合計', '合計金額', '価格', '費用', '料金', '支払額', '経費金額', 'amount', 'price', 'total', 'cost'],
-    subject: ['件名', 'タイトル', '題名', '議題', '案件名', '案件', 'subject', 'title'],
-    body: ['内容', '詳細', '本文', '備考', 'メモ', '摘要', '概要', '説明', '議事内容', 'コメント', '申請理由', 'description', 'note', 'memo', 'comment', 'message', 'remarks', 'detail', 'body'],
-    address: ['住所', '所在地', 'address'],
-    category: ['勘定科目', '科目', '費目', '経費区分', 'カテゴリ', 'カテゴリー', '経費種別', 'category'],
-    vendor: ['支払先', '支払い先', '店名', '店舗名', '取引先', '購入先', '利用先', 'vendor', 'payee', 'store'],
-    place: ['場所', '会場', '開催場所', 'location', 'venue'],
-    attendees: ['参加者', '出席者', 'メンバー', 'attendees', 'participants'],
-    decision: ['決定事項', '結論', 'decision'],
-    todo: ['todo', '宿題', 'アクション', 'ネクストアクション', '次回', 'action', 'task', 'やること'],
-    project: ['プロジェクト', 'プロジェクト名', '案件番号', 'project'],
-    url: ['url', 'リンク', 'link', 'サイト', 'ホームページ']
+    name: ['name', 'full name', 'your name', 'contact name', 'first name', 'last name', 'requester', 'username'],
+    company: ['company', 'company name', 'organization', 'organisation', 'business name', 'employer'],
+    department: ['department', 'division', 'team'],
+    email: ['email', 'e-mail', 'email address'],
+    phone: ['phone', 'phone number', 'telephone', 'mobile', 'contact number', 'cell'],
+    date: ['date', 'expense date', 'transaction date', 'event date', 'due date', 'purchase date'],
+    amount: ['amount', 'total', 'total amount', 'price', 'cost', 'expense amount', 'sum'],
+    subject: ['subject', 'title', 'topic', 'meeting title'],
+    body: ['description', 'details', 'notes', 'note', 'memo', 'summary', 'comments', 'comment', 'message', 'remarks', 'reason', 'body'],
+    address: ['address', 'street address', 'location address'],
+    category: ['category', 'expense category', 'account', 'account code', 'expense type'],
+    vendor: ['vendor', 'payee', 'merchant', 'store', 'supplier', 'paid to'],
+    place: ['location', 'venue', 'place', 'room'],
+    attendees: ['attendees', 'participants', 'members'],
+    decision: ['decision', 'conclusion', 'resolution'],
+    todo: ['todo', 'action item', 'action items', 'next steps', 'follow up', 'follow-up', 'task'],
+    project: ['project', 'project name', 'project code'],
+    url: ['url', 'link', 'website', 'homepage']
   };
 
   const normalize = (s) => String(s || '')
     .toLowerCase()
-    .replace(/[\s　:：=＝*＊※必須（）()「」【】\[\]<>＜＞॰、。.,!?！？]/g, '');
+    .replace(/[\s:=*()[\]<>.,!?"'#-]/g, '');
 
   function groupOf(label) {
     const n = normalize(label);
@@ -49,7 +50,7 @@
     return partial;
   }
 
-  // フィールドのラベル候補と入力テキストのキーがどれだけ一致するか (0〜1)
+  // How well a field's candidate labels match the entry key (0-1)
   function scoreMatch(fieldLabels, entryKey) {
     const e = normalize(entryKey);
     if (!e) return 0;
@@ -67,7 +68,8 @@
   }
 
   // ---------------------------------------------------------------
-  // ラベル推定: label[for] / 親label / aria / placeholder / table / dl / 兄弟要素
+  // Label inference: label[for] / ancestor <label> / aria / placeholder /
+  // table / definition list / sibling elements
   // ---------------------------------------------------------------
   function cleanText(node) {
     const clone = node.cloneNode(true);
@@ -85,7 +87,7 @@
       try {
         const l = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
         if (l) push(cleanText(l));
-      } catch (e) { /* 無効な id は無視 */ }
+      } catch (e) { /* ignore invalid id */ }
     }
     const parentLabel = el.closest('label');
     if (parentLabel) push(cleanText(parentLabel));
@@ -98,7 +100,7 @@
       });
     }
     push(el.placeholder);
-    // テーブルレイアウト: <th>ラベル</th><td><input></td>
+    // Table layout: <th>Label</th><td><input></td>
     const td = el.closest('td');
     if (td) {
       const prev = td.previousElementSibling;
@@ -110,16 +112,16 @@
         if (headRow && headRow.cells[td.cellIndex]) push(headRow.cells[td.cellIndex].textContent);
       }
     }
-    // 定義リスト: <dt>ラベル</dt><dd><input></dd>
+    // Definition list: <dt>Label</dt><dd><input></dd>
     const dd = el.closest('dd');
     if (dd) {
       const dt = dd.previousElementSibling;
       if (dt && dt.tagName === 'DT') push(dt.textContent);
     }
-    // 直前の兄弟要素
+    // Immediately preceding sibling element
     const sib = el.previousElementSibling;
     if (sib && /^(LABEL|SPAN|DIV|P|B|STRONG|H[1-6])$/.test(sib.tagName)) push(sib.textContent);
-    // 親要素のテキスト（最終手段）
+    // Parent element text (last resort)
     if (!labels.length && el.parentElement) push(cleanText(el.parentElement));
     push(el.name);
     push(el.id);
@@ -147,7 +149,7 @@
   }
 
   // ---------------------------------------------------------------
-  // 値の書き込み（React/Vue の制御コンポーネント対応 + イベント発火）
+  // Writing values (supports React/Vue controlled components + fires events)
   // ---------------------------------------------------------------
   function setNativeValue(el, value) {
     const proto = el instanceof HTMLTextAreaElement
@@ -179,14 +181,14 @@
     setTimeout(() => el.classList.remove('pfa-filled'), 2500);
   }
 
-  // 型に合わせて値を整形
+  // Coerce the value to match the field's input type
   function coerceValue(field, value) {
     const v = String(value).trim();
     if (field.type === 'date') {
-      const m = v.match(/(20\d{2})\s*[\/年.\-]\s*(\d{1,2})\s*[\/月.\-]\s*(\d{1,2})/);
+      const m = v.match(/(20\d{2})[\/.\-](\d{1,2})[\/.\-](\d{1,2})/);
       if (m) return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
       if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-      return null; // date input に解釈不能な値は入れない
+      return null; // don't put an unparsable value into a date input
     }
     if (field.type === 'number') {
       const digits = v.replace(/[^\d.\-]/g, '');
@@ -230,11 +232,11 @@
       return picked;
     }
     if (field.type === 'checkbox') {
-      const truthy = /^(はい|あり|有|yes|true|on|1|✓|要)$/i.test(String(value).trim());
+      const truthy = /^(yes|true|on|1|checked|required)$/i.test(String(value).trim());
       el.checked = truthy;
       el.dispatchEvent(new Event('change', { bubbles: true }));
       flash(el);
-      return truthy ? 'チェックON' : 'チェックOFF';
+      return truthy ? 'Checked' : 'Unchecked';
     }
     if (field.type === 'radio') {
       const radios = el.name
@@ -260,7 +262,7 @@
   }
 
   // ---------------------------------------------------------------
-  // メイン: entries [{key, value}] をページのフォームにマッピング
+  // Main: map entries [{key, value}] onto the page's form fields
   // ---------------------------------------------------------------
   const THRESHOLD = 0.6;
 
@@ -276,7 +278,7 @@
       for (const field of fields) {
         if (usedFields.has(field.el)) continue;
         let score = scoreMatch(field.labels, entry.key);
-        // 型ヒント: メールは email 型、日付は date 型を優遇
+        // Type hints: prefer an email input for email, a date input for date, etc.
         const eg = groupOf(entry.key);
         if (eg === 'email' && field.type === 'email') score += 0.1;
         if (eg === 'date' && field.type === 'date') score += 0.1;
@@ -290,7 +292,7 @@
           usedFields.add(bestField.el);
           filled.push({
             key: entry.key,
-            label: bestField.labels[0] || bestField.el.name || '(無名フィールド)',
+            label: bestField.labels[0] || bestField.el.name || '(unnamed field)',
             value: String(applied).slice(0, 80)
           });
           continue;
@@ -306,7 +308,7 @@
       index: i + 1,
       tag: f.tag,
       type: f.type || '',
-      label: f.labels[0] || '(ラベル不明)',
+      label: f.labels[0] || '(label unknown)',
       candidates: f.labels.slice(0, 3)
     }));
   }
@@ -324,6 +326,6 @@
     } catch (e) {
       sendResponse({ ok: false, error: String(e && e.message || e) });
     }
-    return false; // 同期応答
+    return false; // synchronous response
   });
 })();

@@ -1,6 +1,6 @@
 // PageFlow AI - popup.js
-// 4 機能（SmartFormMapper / ExpensePilot / DevCleanShortcut / CalendarBlocker）の UI 制御。
-// CSP 準拠: インラインスクリプトなし・eval なし・リモートコード読み込みなし。
+// UI control for the 4 features (SmartFormMapper / ExpensePilot / DevCleanShortcut / CalendarBlocker).
+// CSP compliant: no inline scripts, no eval, no remote code loading.
 
 'use strict';
 
@@ -9,7 +9,7 @@ const AGENT_BASE = 'http://127.0.0.1:8765';
 const CLAUDE_MODEL = 'claude-opus-4-8';
 
 // ---------------------------------------------------------------
-// 共通ユーティリティ
+// Shared utilities
 // ---------------------------------------------------------------
 function setStatus(msg, kind) {
   const bar = $('#statusBar');
@@ -34,7 +34,7 @@ async function getActiveTab() {
 }
 
 function isInjectableUrl(url) {
-  // file:// はデモフォーム用（拡張機能の詳細設定で「ファイルのURLへのアクセス」を許可した場合に有効）
+  // file:// is for the demo form (works if "Allow access to file URLs" is enabled in extension details)
   return /^(https?|file):\/\//.test(url || '');
 }
 
@@ -42,21 +42,21 @@ async function ensureContentScript(tabId) {
   try {
     const res = await chrome.tabs.sendMessage(tabId, { type: 'PFA_PING' });
     if (res && res.ok) return;
-  } catch (e) { /* 未注入 → 注入する */ }
+  } catch (e) { /* not injected yet -> inject it */ }
   await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
 }
 
 async function sendToPage(message) {
   const tab = await getActiveTab();
   if (!tab || !isInjectableUrl(tab.url)) {
-    throw new Error('このページでは利用できません（chrome:// や拡張機能ページ等）。通常の Web ページで開いてください。');
+    throw new Error('This page is not supported (chrome:// or an extension page, etc). Please open a regular web page.');
   }
   await ensureContentScript(tab.id);
   return chrome.tabs.sendMessage(tab.id, message);
 }
 
 // ---------------------------------------------------------------
-// テーマ切替（ダークモード対応）
+// Theme toggle (dark-mode support)
 // ---------------------------------------------------------------
 async function initTheme() {
   const { pfaTheme } = await chrome.storage.local.get('pfaTheme');
@@ -76,7 +76,7 @@ function applyTheme(theme) {
 }
 
 // ---------------------------------------------------------------
-// タブ切替
+// Tab switching
 // ---------------------------------------------------------------
 function initTabs() {
   document.querySelectorAll('.tab').forEach((btn) => {
@@ -97,39 +97,39 @@ function initMapper() {
   const textarea = $('#mapperText');
   const result = $('#mapperResult');
 
-  // 右クリックメニュー経由のテキストを取り込む
+  // Pick up text sent via the right-click context menu
   chrome.storage.local.get('pfaPendingText').then(({ pfaPendingText }) => {
     if (pfaPendingText) {
       textarea.value = pfaPendingText;
       chrome.storage.local.remove('pfaPendingText');
       chrome.runtime.sendMessage({ type: 'PFA_CLEAR_BADGE' }).catch(() => {});
-      setStatus('右クリックで送ったテキストを読み込みました', 'ok');
+      setStatus('Loaded the text sent via right-click', 'ok');
     }
   });
 
   $('#btnPaste').addEventListener('click', async () => {
     try {
       textarea.value = await navigator.clipboard.readText();
-      setStatus('クリップボードから貼り付けました', 'ok');
+      setStatus('Pasted from clipboard', 'ok');
     } catch (e) {
-      setStatus('クリップボードを読み取れませんでした', 'err');
+      setStatus('Could not read the clipboard', 'err');
     }
   });
 
   $('#btnScan').addEventListener('click', async () => {
     try {
-      renderCard(result, 'ok', '<span class="spinner"></span>ページを解析中…');
+      renderCard(result, 'ok', '<span class="spinner"></span>Scanning the page…');
       const res = await sendToPage({ type: 'PFA_SCAN' });
-      if (!res || !res.ok) throw new Error(res && res.error || '解析に失敗しました');
+      if (!res || !res.ok) throw new Error(res && res.error || 'Scan failed');
       if (!res.fields.length) {
-        renderCard(result, 'warn', '入力可能なフォームが見つかりませんでした。');
+        renderCard(result, 'warn', 'No fillable form fields were found.');
         return;
       }
       const items = res.fields.slice(0, 20).map((f) =>
         `<li><strong>${esc(f.label)}</strong> <span class="muted">(${esc(f.tag)}${f.type ? ':' + esc(f.type) : ''})</span></li>`
       ).join('');
       renderCard(result, 'ok',
-        `<span class="badge">${res.fields.length}</span>個のフィールドを検出しました<ul>${items}</ul>`);
+        `<span class="badge">${res.fields.length}</span>fields detected<ul>${items}</ul>`);
     } catch (e) {
       renderCard(result, 'err', esc(e.message));
     }
@@ -138,19 +138,19 @@ function initMapper() {
   $('#btnMap').addEventListener('click', async () => {
     const text = textarea.value.trim();
     if (!text) {
-      renderCard(result, 'warn', 'テキストを貼り付けてください。');
+      renderCard(result, 'warn', 'Please paste some text.');
       return;
     }
     const entries = PageFlowParser.extractFieldsFromText(text);
     if (!entries.length) {
       renderCard(result, 'warn',
-        '「項目名: 値」の形式が見つかりませんでした。<br>例)「氏名: 山田太郎」のような行を含めてください。');
+        'No "label: value" pairs were found.<br>Example: include a line like "Name: John Smith".');
       return;
     }
     try {
-      renderCard(result, 'ok', '<span class="spinner"></span>マッピング中…');
+      renderCard(result, 'ok', '<span class="spinner"></span>Mapping…');
       const res = await sendToPage({ type: 'PFA_FILL', entries });
-      if (!res || !res.ok) throw new Error(res && res.error || '入力に失敗しました');
+      if (!res || !res.ok) throw new Error(res && res.error || 'Autofill failed');
       renderFillReport(result, res, entries.length);
     } catch (e) {
       renderCard(result, 'err', esc(e.message));
@@ -161,18 +161,18 @@ function initMapper() {
 function renderFillReport(container, res, entryCount) {
   if (!res.filled.length) {
     renderCard(container, 'warn',
-      `テキストから ${entryCount} 項目を抽出しましたが、一致するフォーム項目が見つかりませんでした` +
-      `（ページ内フィールド: ${res.totalFields} 個）。「🔍 フォーム検出」でラベルを確認してください。`);
+      `Extracted ${entryCount} item(s) from the text, but no matching form fields were found ` +
+      `(fields on page: ${res.totalFields}). Use "🔍 Scan form" to check the detected labels.`);
     return;
   }
   const rows = res.filled.map((f) =>
     `<div class="kv"><span>✅ ${esc(f.label)}</span><span class="v">${esc(f.value)}</span></div>`
   ).join('');
   const skipped = res.unmatched.length
-    ? `<div class="muted" style="margin-top:6px">未マッチ: ${res.unmatched.map(esc).join(' / ')}</div>`
+    ? `<div class="muted" style="margin-top:6px">Unmatched: ${res.unmatched.map(esc).join(' / ')}</div>`
     : '';
   renderCard(container, 'ok',
-    `<span class="badge">${res.filled.length}</span>項目を自動入力しました${rows ? rows : ''}${skipped}`);
+    `<span class="badge">${res.filled.length}</span>field(s) autofilled${rows ? rows : ''}${skipped}`);
 }
 
 // ===============================================================
@@ -199,24 +199,24 @@ function initExpense() {
 
   $('#btnParseReceipt').addEventListener('click', () => {
     const text = $('#receiptText').value.trim();
-    if (!text) { setStatus('レシートのテキストを貼り付けてください', 'err'); return; }
+    if (!text) { setStatus('Please paste the receipt text', 'err'); return; }
     const data = PageFlowParser.extractReceiptData(text);
-    showExpenseForm(data, 'テキストを解析しました');
+    showExpenseForm(data, 'Text parsed');
   });
 
   $('#btnFillExpense').addEventListener('click', async () => {
     const entries = [];
     const add = (key, value) => { if (value) entries.push({ key, value: String(value) }); };
-    add('日付', $('#expDate').value);
-    add('金額', $('#expAmount').value);
-    add('支払先', $('#expVendor').value);
-    add('勘定科目', $('#expCategory').value);
-    add('内容', $('#expMemo').value);
-    if (!entries.length) { setStatus('入力する値がありません', 'err'); return; }
+    add('Date', $('#expDate').value);
+    add('Amount', $('#expAmount').value);
+    add('Vendor', $('#expVendor').value);
+    add('Category', $('#expCategory').value);
+    add('Memo', $('#expMemo').value);
+    if (!entries.length) { setStatus('There is nothing to fill in', 'err'); return; }
     try {
-      renderCard(result, 'ok', '<span class="spinner"></span>経費フォームへ入力中…');
+      renderCard(result, 'ok', '<span class="spinner"></span>Filling in the expense form…');
       const res = await sendToPage({ type: 'PFA_FILL', entries });
-      if (!res || !res.ok) throw new Error(res && res.error || '入力に失敗しました');
+      if (!res || !res.ok) throw new Error(res && res.error || 'Autofill failed');
       renderFillReport(result, res, entries.length);
     } catch (e) {
       renderCard(result, 'err', esc(e.message));
@@ -226,12 +226,12 @@ function initExpense() {
   async function handleReceiptFile(file) {
     const result = $('#expenseResult');
     try {
-      renderCard(result, 'ok', `<span class="spinner"></span>「${esc(file.name)}」を解析中…`);
+      renderCard(result, 'ok', `<span class="spinner"></span>Analyzing "${esc(file.name)}"…`);
       const { pfaApiKey } = await chrome.storage.local.get('pfaApiKey');
 
       if (file.type === 'text/plain' || /\.txt$/i.test(file.name)) {
         const text = await file.text();
-        showExpenseForm(PageFlowParser.extractReceiptData(text), 'テキストファイルを解析しました');
+        showExpenseForm(PageFlowParser.extractReceiptData(text), 'Text file parsed');
         result.innerHTML = '';
         return;
       }
@@ -239,38 +239,38 @@ function initExpense() {
       if (file.type === 'application/pdf') {
         const text = await PageFlowPdf.extractPdfText(await file.arrayBuffer());
         if (text) {
-          showExpenseForm(PageFlowParser.extractReceiptData(text), 'PDF からテキストを抽出しました');
+          showExpenseForm(PageFlowParser.extractReceiptData(text), 'Extracted text from the PDF');
           result.innerHTML = '';
           return;
         }
-        // 日本語 CID フォント等で抽出不能 → AI フォールバック
+        // Could not decode (e.g. scanned / embedded CID font) -> fall back to AI
         if (pfaApiKey) {
           const data = await aiExtractReceipt(file, pfaApiKey);
-          showExpenseForm(data, 'Claude が PDF を解析しました 🤖');
+          showExpenseForm(data, 'Claude analyzed the PDF 🤖');
           result.innerHTML = '';
           return;
         }
         renderCard(result, 'warn',
-          'この PDF はローカル解析できない形式でした（スキャン/日本語埋め込みフォント）。<br>' +
-          '⚙️ 設定タブで API キーを登録すると AI 解析できます。下の「テキスト貼り付け」でも入力できます。');
+          'This PDF is in a format that can\'t be parsed locally (scanned / embedded font).<br>' +
+          'Register an API key in the ⚙️ Settings tab to enable AI analysis, or use "Paste receipt text" below.');
         return;
       }
 
       if (/^image\//.test(file.type)) {
         if (!pfaApiKey) {
           renderCard(result, 'warn',
-            '画像の解析には AI が必要です。⚙️ 設定タブで Anthropic API キーを登録してください。');
+            'Analyzing images requires AI. Register an Anthropic API key in the ⚙️ Settings tab.');
           return;
         }
         const data = await aiExtractReceipt(file, pfaApiKey);
-        showExpenseForm(data, 'Claude が画像を解析しました 🤖');
+        showExpenseForm(data, 'Claude analyzed the image 🤖');
         result.innerHTML = '';
         return;
       }
 
-      renderCard(result, 'warn', '対応形式は PDF / PNG / JPEG / WebP / GIF / TXT です。');
+      renderCard(result, 'warn', 'Supported formats: PDF / PNG / JPEG / WebP / GIF / TXT.');
     } catch (e) {
-      renderCard(result, 'err', `解析エラー: ${esc(e.message)}`);
+      renderCard(result, 'err', `Parsing error: ${esc(e.message)}`);
     }
   }
 }
@@ -293,12 +293,12 @@ function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(',')[1]);
-    reader.onerror = () => reject(new Error('ファイルを読み込めませんでした'));
+    reader.onerror = () => reject(new Error('Could not read the file'));
     reader.readAsDataURL(file);
   });
 }
 
-// Claude API で領収書から構造化データを抽出（ブラウザ直接アクセス）
+// Extract structured data from a receipt via the Claude API (direct browser access)
 async function aiExtractReceipt(file, apiKey) {
   const b64 = await fileToBase64(file);
   const isPdf = file.type === 'application/pdf';
@@ -309,15 +309,15 @@ async function aiExtractReceipt(file, apiKey) {
   const schema = {
     type: 'object',
     properties: {
-      date: { type: 'string', description: '利用日 YYYY-MM-DD。不明なら空文字' },
-      amount: { type: 'integer', description: '合計金額（税込・円）' },
-      vendor: { type: 'string', description: '店名・支払先' },
+      date: { type: 'string', description: 'Transaction date as YYYY-MM-DD. Empty string if unknown' },
+      amount: { type: 'number', description: 'Total amount (including tax)' },
+      vendor: { type: 'string', description: 'Merchant / vendor name' },
       category: {
         type: 'string',
-        enum: ['旅費交通費', '会議費', '接待交際費', '消耗品費', '通信費', '新聞図書費', '水道光熱費', '地代家賃', '雑費'],
-        description: '日本の経費精算で使う勘定科目'
+        enum: ['Travel', 'Meals & Entertainment', 'Office Supplies', 'Books & Subscriptions', 'Communications', 'Utilities', 'Software & Subscriptions', 'Lodging', 'Miscellaneous'],
+        description: 'Expense accounting category'
       },
-      memo: { type: 'string', description: '品目・用途の短い説明' }
+      memo: { type: 'string', description: 'Short description of the item(s) or purpose' }
     },
     required: ['date', 'amount', 'vendor', 'category', 'memo'],
     additionalProperties: false
@@ -339,7 +339,7 @@ async function aiExtractReceipt(file, apiKey) {
         role: 'user',
         content: [
           mediaBlock,
-          { type: 'text', text: 'この領収書から経費精算に必要な情報を抽出してください。' }
+          { type: 'text', text: 'Extract the information needed for an expense report from this receipt.' }
         ]
       }]
     })
@@ -347,12 +347,12 @@ async function aiExtractReceipt(file, apiKey) {
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    if (res.status === 401) throw new Error('API キーが無効です（401）。設定タブで確認してください。');
-    throw new Error(`Claude API エラー (${res.status}): ${body.slice(0, 160)}`);
+    if (res.status === 401) throw new Error('The API key is invalid (401). Please check the Settings tab.');
+    throw new Error(`Claude API error (${res.status}): ${body.slice(0, 160)}`);
   }
   const data = await res.json();
   const textBlock = (data.content || []).find((b) => b.type === 'text');
-  if (!textBlock) throw new Error('AI 応答にテキストが含まれていません');
+  if (!textBlock) throw new Error('The AI response did not contain any text');
   return JSON.parse(textBlock.text);
 }
 
@@ -384,11 +384,11 @@ async function checkAgent() {
   try {
     const info = await agentFetch('/health', 1800);
     dot.className = 'dot on';
-    label.textContent = `エージェント接続中 (v${info.version || '?'} / ${info.platform || ''})`;
+    label.textContent = `Agent connected (v${info.version || '?'} / ${info.platform || ''})`;
     return true;
   } catch (e) {
     dot.className = 'dot off';
-    label.textContent = 'エージェント未起動 — pageflow_agent.py を実行してください';
+    label.textContent = 'Agent not running — start pageflow_agent.py';
     return false;
   }
 }
@@ -399,32 +399,32 @@ function initDev() {
 
   const run = async (label, path) => {
     if (!(await checkAgent())) {
-      devLog('❌ エージェントに接続できません。ターミナルで以下を実行:\n   python3 local-agent/pageflow_agent.py', true);
+      devLog('❌ Could not connect to the agent. In a terminal, run:\n   python3 local-agent/pageflow_agent.py', true);
       return;
     }
-    devLog(`▶ ${label} を実行中…`, true);
+    devLog(`▶ Running ${label}…`, true);
     try {
       const res = await agentFetch(path);
       for (const step of (res.steps || [])) {
         devLog(`${step.ok ? '✅' : '⚠️'} ${step.name}`);
         if (step.output) devLog(step.output.trim().split('\n').map((l) => '   ' + l).join('\n'));
       }
-      devLog(res.ok ? '🎉 完了しました' : '⚠️ 一部のステップが失敗しました');
+      devLog(res.ok ? '🎉 Done' : '⚠️ Some steps failed');
     } catch (e) {
-      devLog(`❌ 実行エラー: ${e.message}`);
+      devLog(`❌ Execution error: ${e.message}`);
     }
   };
 
   $('#btnPorts').addEventListener('click', () => {
     const port = parseInt($('#devPort').value, 10);
-    if (!port || port < 1 || port > 65535) { setStatus('ポート番号が不正です', 'err'); return; }
-    run(`ポート ${port} の解放`, `/clean/ports?port=${port}`);
+    if (!port || port < 1 || port > 65535) { setStatus('Invalid port number', 'err'); return; }
+    run(`freeing port ${port}`, `/clean/ports?port=${port}`);
   });
-  $('#btnDocker').addEventListener('click', () => run('Docker クリーンアップ', '/clean/docker'));
-  $('#btnCache').addEventListener('click', () => run('キャッシュ削除', '/clean/cache'));
+  $('#btnDocker').addEventListener('click', () => run('Docker cleanup', '/clean/docker'));
+  $('#btnCache').addEventListener('click', () => run('cache cleanup', '/clean/cache'));
   $('#btnAll').addEventListener('click', () => {
     const port = parseInt($('#devPort').value, 10) || 3000;
-    run('フルクリーンアップ', `/clean/all?port=${port}`);
+    run('full cleanup', `/clean/all?port=${port}`);
   });
 }
 
@@ -437,14 +437,14 @@ function taskRowTemplate(title, minutes) {
   const row = document.createElement('div');
   row.className = 'task-row';
   const t = document.createElement('input');
-  t.type = 'text'; t.className = 't-title'; t.placeholder = '例) 提案資料の作成';
+  t.type = 'text'; t.className = 't-title'; t.placeholder = 'e.g. Draft the proposal deck';
   t.value = title || '';
   const m = document.createElement('input');
   m.type = 'number'; m.className = 't-min'; m.min = '5'; m.step = '5';
-  m.placeholder = '分'; m.title = '見積もり時間（分）';
+  m.placeholder = 'min'; m.title = 'Estimated time (minutes)';
   m.value = minutes || '';
   const del = document.createElement('button');
-  del.className = 't-del'; del.title = '削除'; del.textContent = '✕';
+  del.className = 't-del'; del.title = 'Remove'; del.textContent = '✕';
   del.addEventListener('click', () => { row.remove(); saveTasks(); });
   row.append(t, m, del);
   return row;
@@ -479,7 +479,7 @@ function initCalendar() {
   $('#btnSchedule').addEventListener('click', () => {
     const tasks = readTasks();
     if (!tasks.length) {
-      renderCard(result, 'warn', 'タスク名と見積もり時間（分）を入力してください。');
+      renderCard(result, 'warn', 'Please enter a task name and estimated time (minutes).');
       bookAll.classList.add('hidden');
       return;
     }
@@ -496,7 +496,7 @@ function initCalendar() {
     });
     lastSchedule = blocks;
     if (!blocks.length) {
-      renderCard(result, 'warn', '今日の残り時間に収まる空きが見つかりませんでした。終了時刻を延ばすか、タスクを分割してください。');
+      renderCard(result, 'warn', 'No free slot was found in the remaining time today. Try extending the end time or splitting tasks up.');
       bookAll.classList.add('hidden');
       return;
     }
@@ -504,9 +504,9 @@ function initCalendar() {
     result.innerHTML = blocks.map((b, i) =>
       `<div class="slot"><span class="time">${fmt(b.start)}–${fmt(b.end)}</span>` +
       `<span class="title">${esc(b.title)}</span>` +
-      `<button class="btn ghost small slot-book" data-i="${i}">登録</button></div>`
+      `<button class="btn ghost small slot-book" data-i="${i}">Book</button></div>`
     ).join('') + (unplaced.length
-      ? `<div class="result-card warn">収まらなかったタスク: ${unplaced.map(esc).join(' / ')}</div>` : '');
+      ? `<div class="result-card warn">Tasks that didn't fit: ${unplaced.map(esc).join(' / ')}</div>` : '');
     result.querySelectorAll('.slot-book').forEach((btn) => {
       btn.addEventListener('click', () => bookBlock(blocks[Number(btn.dataset.i)]));
     });
@@ -515,22 +515,22 @@ function initCalendar() {
 
   bookAll.addEventListener('click', async () => {
     if (!lastSchedule.length) return;
-    const toOpen = lastSchedule.slice(0, 8); // タブの開きすぎを防止
+    const toOpen = lastSchedule.slice(0, 8); // avoid opening too many tabs
     for (const block of toOpen) {
       await bookBlock(block, true);
     }
     if (lastSchedule.length > 8) {
-      setStatus('一度に開けるのは 8 件までです。残りは個別の「登録」を使ってください。', 'err');
+      setStatus('Only 8 can be opened at once. Use the individual "Book" buttons for the rest.', 'err');
     } else {
-      setStatus(`${toOpen.length} 件の予定作成タブを開きました。各タブで「保存」を押せば確定です。`, 'ok');
+      setStatus(`Opened ${toOpen.length} event-creation tab(s). Click "Save" in each tab to confirm.`, 'ok');
     }
   });
 }
 
 async function bookBlock(block, background) {
   const url = PageFlowParser.buildCalendarUrl(
-    `🛡 作業時間: ${block.title}`, block.start, block.end,
-    `PageFlow AI が確保した集中作業ブロックです。\n見積もり: ${block.minutes}分`);
+    `🛡 Focus time: ${block.title}`, block.start, block.end,
+    `Focus-time block reserved by PageFlow AI.\nEstimate: ${block.minutes} min`);
   await chrome.tabs.create({ url, active: !background });
 }
 
@@ -544,28 +544,28 @@ function initSettings() {
   chrome.storage.local.get('pfaApiKey').then(({ pfaApiKey }) => {
     if (pfaApiKey) {
       input.value = pfaApiKey;
-      status.textContent = '✅ API キー設定済み — 画像・スキャン PDF の AI 解析が有効です';
+      status.textContent = '✅ API key set — AI analysis of image / scanned-PDF receipts is enabled';
     }
   });
 
   $('#btnSaveKey').addEventListener('click', async () => {
     const key = input.value.trim();
-    if (!key) { setStatus('API キーを入力してください', 'err'); return; }
+    if (!key) { setStatus('Please enter an API key', 'err'); return; }
     await chrome.storage.local.set({ pfaApiKey: key });
-    status.textContent = '✅ 保存しました — 画像・スキャン PDF の AI 解析が有効です';
-    setStatus('API キーを保存しました', 'ok');
+    status.textContent = '✅ Saved — AI analysis of image / scanned-PDF receipts is enabled';
+    setStatus('API key saved', 'ok');
   });
 
   $('#btnClearKey').addEventListener('click', async () => {
     await chrome.storage.local.remove('pfaApiKey');
     input.value = '';
-    status.textContent = 'API キーは未設定です';
-    setStatus('API キーを削除しました', 'ok');
+    status.textContent = 'No API key is set';
+    setStatus('API key deleted', 'ok');
   });
 }
 
 // ===============================================================
-// 起動
+// Bootstrap
 // ===============================================================
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();

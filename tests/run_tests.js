@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// PageFlow AI - 自動テスト
+// PageFlow AI - automated tests
 //   node tests/run_tests.js
-// 1) manifest.json の妥当性 / 2) CSP 違反パターンの静的検査 / 3) parser.js ユニットテスト
+// 1) manifest.json validity / 2) static CSP-violation checks / 3) parser.js unit tests
 
 'use strict';
 
@@ -38,13 +38,13 @@ console.log('\n[1] manifest.json');
 // ----------------------------------------------------------------
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
 
-test('manifest_version は 3 (MV3)', () => assertEq(manifest.manifest_version, 3));
-test('必須キーが揃っている', () => {
+test('manifest_version is 3 (MV3)', () => assertEq(manifest.manifest_version, 3));
+test('required keys are present', () => {
   for (const k of ['name', 'version', 'action', 'background', 'icons']) {
     assert(manifest[k], `missing key: ${k}`);
   }
 });
-test('参照ファイルがすべて存在する', () => {
+test('all referenced files exist', () => {
   const files = [
     manifest.action.default_popup,
     manifest.background.service_worker,
@@ -55,171 +55,175 @@ test('参照ファイルがすべて存在する', () => {
     assert(fs.existsSync(path.join(ROOT, f)), `missing file: ${f}`);
   }
 });
-test('非TLSのhost許可は 127.0.0.1 のみ (MV3 要件)', () => {
+test('non-TLS host permissions are limited to 127.0.0.1 (MV3 requirement)', () => {
   const insecure = (manifest.host_permissions || []).filter((h) => h.startsWith('http://'));
   assert(insecure.every((h) => h.startsWith('http://127.0.0.1')),
-    `http:// は 127.0.0.1 以外に許可しない: ${insecure.join(', ')}`);
+    `http:// must only be allowed for 127.0.0.1: ${insecure.join(', ')}`);
 });
 
 // ----------------------------------------------------------------
-console.log('\n[2] CSP / セキュリティ静的検査');
+console.log('\n[2] CSP / security static checks');
 // ----------------------------------------------------------------
 const popupHtml = fs.readFileSync(path.join(ROOT, 'popup.html'), 'utf8');
 
-test('popup.html にインライン <script> がない', () => {
+test('popup.html has no inline <script>', () => {
   const inline = popupHtml.match(/<script(?![^>]*\bsrc=)[^>]*>[^<]*\S[^<]*<\/script>/i);
   assert(!inline, `inline script found: ${inline && inline[0].slice(0, 60)}`);
 });
-test('popup.html にインラインイベントハンドラ (onclick 等) がない', () => {
+test('popup.html has no inline event handlers (onclick, etc.)', () => {
   assert(!/\son[a-z]+\s*=\s*["']/i.test(popupHtml), 'inline event handler found');
 });
-test('popup.html にリモートスクリプト/CSS の読み込みがない', () => {
+test('popup.html loads no remote script/CSS', () => {
   assert(!/<(script|link)[^>]+(src|href)\s*=\s*["']https?:/i.test(popupHtml), 'remote resource found');
 });
 
 const jsFiles = ['popup.js', 'content.js', 'background.js', 'parser.js', 'pdf_extract.js'];
 for (const f of jsFiles) {
   const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
-  test(`${f}: eval / new Function を使っていない`, () => {
+  test(`${f}: does not use eval / new Function`, () => {
     assert(!/\beval\s*\(/.test(src), 'eval() found');
     assert(!/new\s+Function\s*\(/.test(src), 'new Function() found');
   });
 }
 
 // ----------------------------------------------------------------
-console.log('\n[3] parser.js ユニットテスト');
+console.log('\n[3] parser.js unit tests');
 // ----------------------------------------------------------------
 const P = require(path.join(ROOT, 'parser.js'));
 
 const SAMPLE_MINUTES = `
-【定例ミーティング議事録】
-日時: 2026/06/10 14:00
-場所: 第3会議室
-氏名: 山田太郎
-会社名: 株式会社サンプル商事
-部署: 営業企画部
-メールアドレス: taro.yamada@example.co.jp
-電話番号: 03-1234-5678
-件名: 新製品リリースに関する定例打合せ
-・決定事項: リリース日は6月20日に確定
-内容: 価格は¥49,800で据え置き。次回までに販促資料を準備する。
+[Weekly Sync Notes]
+Date: 2026/06/10 2:00 PM
+Location: Conference Room 3
+Name: John Smith
+Company: Acme Corporation
+Department: Sales & Planning
+Email: john.smith@example.com
+Phone: 415-555-0182
+Subject: Regular sync on the new product launch
+Decision: Launch date confirmed for June 20
+Description: Price stays at $49.80. Prepare marketing materials before the next meeting.
 `;
 
-test('extractFieldsFromText: 基本的な「キー: 値」を抽出できる', () => {
+test('extractFieldsFromText: extracts basic "key: value" pairs', () => {
   const entries = P.extractFieldsFromText(SAMPLE_MINUTES);
   const get = (k) => (entries.find((e) => e.key === k) || {}).value;
-  assertEq(get('氏名'), '山田太郎', '氏名');
-  assertEq(get('会社名'), '株式会社サンプル商事', '会社名');
-  assertEq(get('メールアドレス'), 'taro.yamada@example.co.jp', 'メール');
-  assertEq(get('電話番号'), '03-1234-5678', '電話');
-  assertEq(get('件名'), '新製品リリースに関する定例打合せ', '件名');
+  assertEq(get('Name'), 'John Smith', 'name');
+  assertEq(get('Company'), 'Acme Corporation', 'company');
+  assertEq(get('Email'), 'john.smith@example.com', 'email');
+  assertEq(get('Phone'), '415-555-0182', 'phone');
+  assertEq(get('Subject'), 'Regular sync on the new product launch', 'subject');
 });
 
-test('extractFieldsFromText: 箇条書き記号・【】形式を処理できる', () => {
-  const entries = P.extractFieldsFromText('・決定事項: リリース確定\n【担当】鈴木');
+test('extractFieldsFromText: handles bullet markers and [Bracket] style', () => {
+  const entries = P.extractFieldsFromText('Decision: Launch confirmed\n[Owner] Alice');
   const get = (k) => (entries.find((e) => e.key === k) || {}).value;
-  assertEq(get('決定事項'), 'リリース確定');
-  assertEq(get('担当'), '鈴木');
+  assertEq(get('Decision'), 'Launch confirmed');
+  assertEq(get('Owner'), 'Alice');
 });
 
-test('extractFieldsFromText: URL の https: をキーとして誤検出しない', () => {
-  const entries = P.extractFieldsFromText('参考: https://example.com/page\nhttps://foo.bar');
-  assert(!entries.some((e) => /^https?$/i.test(e.key)), 'https をキーにしてしまった');
+test('extractFieldsFromText: does not misdetect the "https:" of a URL as a key', () => {
+  const entries = P.extractFieldsFromText('Reference: https://example.com/page\nhttps://foo.bar');
+  assert(!entries.some((e) => /^https?$/i.test(e.key)), 'treated https as a key');
 });
 
 const SAMPLE_RECEIPT = `
-グリーンタクシー株式会社
-東京都港区芝公園1-2-3
-TEL 03-9999-0000
-2026年6月9日 21:45
-乗車運賃          ¥3,200
-迎車料金            ¥280
-合計             ¥3,480
-お預り           ¥5,000
-お釣り           ¥1,520
+Green Cab Co.
+123 Market St, San Francisco, CA
+Tel 415-555-0199
+2026-06-09 9:45 PM
+Fare              $28.00
+Pickup fee          $2.50
+Total             $34.80
+Amount tendered   $50.00
+Change            $15.20
 `;
 
-test('extractReceiptData: 合計金額を正しく抽出（お預り/釣銭を除外）', () => {
+test('extractReceiptData: extracts the total amount correctly (excludes tendered/change)', () => {
   const r = P.extractReceiptData(SAMPLE_RECEIPT);
-  assertEq(r.amount, 3480, '金額');
+  assertEq(r.amount, 34.8, 'amount');
 });
-test('extractReceiptData: 日付を YYYY-MM-DD に正規化', () => {
+test('extractReceiptData: normalizes the date to YYYY-MM-DD', () => {
   const r = P.extractReceiptData(SAMPLE_RECEIPT);
-  assertEq(r.date, '2026-06-09', '日付');
+  assertEq(r.date, '2026-06-09', 'date');
 });
-test('extractReceiptData: 店名を抽出', () => {
+test('extractReceiptData: extracts the vendor name', () => {
   const r = P.extractReceiptData(SAMPLE_RECEIPT);
-  assertEq(r.vendor, 'グリーンタクシー株式会社', '店名');
+  assertEq(r.vendor, 'Green Cab Co.', 'vendor');
 });
-test('extractReceiptData: 勘定科目をタクシー→旅費交通費と推定', () => {
+test('extractReceiptData: infers category Travel for a taxi receipt', () => {
   const r = P.extractReceiptData(SAMPLE_RECEIPT);
-  assertEq(r.category, '旅費交通費', '勘定科目');
+  assertEq(r.category, 'Travel', 'category');
 });
-test('extractReceiptData: 令和表記の日付を変換', () => {
-  const r = P.extractReceiptData('スターバックス 令和8年6月1日 合計 580円');
+test('extractReceiptData: parses a "Month D, YYYY" date and infers Meals & Entertainment', () => {
+  const r = P.extractReceiptData('Starbucks\nJune 1, 2026\nTotal $5.80');
   assertEq(r.date, '2026-06-01');
-  assertEq(r.category, '会議費');
-  assertEq(r.amount, 580);
+  assertEq(r.category, 'Meals & Entertainment');
+  assertEq(r.amount, 5.8);
+});
+test('extractReceiptData: parses a US-style MM/DD/YYYY date', () => {
+  const r = P.extractReceiptData('Office Depot\n06/09/2026\nTotal $12.00');
+  assertEq(r.date, '2026-06-09');
+  assertEq(r.category, 'Office Supplies');
 });
 
-test('parseBusyLines: 「10:00-11:00 定例」を解析', () => {
-  const busy = P.parseBusyLines('10:00-11:00 定例MTG\n15:30〜16:00');
+test('parseBusyLines: parses "10:00-11:00 Standup"', () => {
+  const busy = P.parseBusyLines('10:00-11:00 Standup\n15:30~16:00');
   assertEq(busy.length, 2);
   assertEq(busy[0].start, '10:00');
-  assertEq(busy[0].title, '定例MTG');
-  assertEq(busy[1].title, '既存の予定');
+  assertEq(busy[0].title, 'Standup');
+  assertEq(busy[1].title, 'Existing event');
 });
 
-test('computeSchedule: 昼休みと既存予定を避けて配置する', () => {
+test('computeSchedule: places tasks around lunch and existing events', () => {
   const base = new Date(2026, 5, 10); // 2026-06-10
   const { blocks, unplaced } = P.computeSchedule(
-    [{ title: '資料作成', minutes: 120 }, { title: 'レビュー', minutes: 60 }],
+    [{ title: 'Draft proposal', minutes: 120 }, { title: 'Review', minutes: 60 }],
     {
       baseDate: base,
-      now: new Date(2026, 5, 9), // 前日 → 当日 9:00 から配置できる
+      now: new Date(2026, 5, 9), // the day before -> can be placed starting at 9:00 today
       start: '09:00', end: '18:00',
       lunchStart: '12:00', lunchEnd: '13:00',
-      busy: [{ start: '10:00', end: '11:00', title: '定例' }],
+      busy: [{ start: '10:00', end: '11:00', title: 'Standup' }],
       bufferMinutes: 0
     }
   );
-  assertEq(unplaced.length, 0, '全タスク配置できる');
+  assertEq(unplaced.length, 0, 'all tasks placed');
   assertEq(blocks.length, 2);
-  // 9:00-10:00 は 1h しかなく 120 分は入らない → 11:00-13:00 も昼休みと衝突
-  // → 最初に置けるのは 13:00-15:00
-  assertEq(blocks[0].start.getHours(), 13, '1件目の開始は13時');
-  assertEq(blocks[0].end.getHours(), 15, '1件目の終了は15時');
-  assertEq(blocks[1].start.getHours(), 15, '2件目は連続して15時開始');
+  // 9:00-10:00 is only 1h, too short for 120 min -> 11:00-13:00 also collides with lunch
+  // -> the first slot that fits is 13:00-15:00
+  assertEq(blocks[0].start.getHours(), 13, 'task 1 starts at 13:00');
+  assertEq(blocks[0].end.getHours(), 15, 'task 1 ends at 15:00');
+  assertEq(blocks[1].start.getHours(), 15, 'task 2 starts right after, at 15:00');
 });
 
-test('computeSchedule: 入り切らないタスクは unplaced に入る', () => {
+test('computeSchedule: a task that does not fit goes into unplaced', () => {
   const base = new Date(2026, 5, 10);
   const { blocks, unplaced } = P.computeSchedule(
-    [{ title: '巨大タスク', minutes: 600 }],
+    [{ title: 'Huge task', minutes: 600 }],
     { baseDate: base, now: new Date(2026, 5, 9), start: '09:00', end: '12:00' }
   );
   assertEq(blocks.length, 0);
-  assertEq(unplaced[0], '巨大タスク');
+  assertEq(unplaced[0], 'Huge task');
 });
 
-test('buildCalendarUrl: Google カレンダー形式の URL を生成', () => {
+test('buildCalendarUrl: generates a Google Calendar event-creation URL', () => {
   const url = P.buildCalendarUrl(
-    '作業時間: テスト',
+    'Focus time: Test',
     new Date(2026, 5, 10, 13, 0),
     new Date(2026, 5, 10, 15, 0),
     'detail'
   );
-  assert(url.startsWith('https://calendar.google.com/calendar/render?'), 'ベースURL');
-  assert(url.includes('20260610T130000%2F20260610T150000'), `dates パラメータ: ${url}`);
-  assert(url.includes('ctz=Asia%2FTokyo'), 'タイムゾーン');
+  assert(url.startsWith('https://calendar.google.com/calendar/render?'), 'base URL');
+  assert(url.includes('20260610T130000%2F20260610T150000'), `dates parameter: ${url}`);
 });
 
-test('guessCategory: 主要キーワードの分類', () => {
-  assertEq(P.guessCategory('JR東日本 乗車券'), '旅費交通費');
-  assertEq(P.guessCategory('紀伊國屋書店'), '新聞図書費');
-  assertEq(P.guessCategory('謎の店'), '雑費');
+test('guessCategory: classifies common keywords', () => {
+  assertEq(P.guessCategory('Uber ride downtown'), 'Travel');
+  assertEq(P.guessCategory('Barnes & Noble bookstore'), 'Books & Subscriptions');
+  assertEq(P.guessCategory('Mystery shop'), 'Miscellaneous');
 });
 
 // ----------------------------------------------------------------
-console.log(`\n結果: ${passed} passed, ${failed} failed`);
+console.log(`\nResult: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

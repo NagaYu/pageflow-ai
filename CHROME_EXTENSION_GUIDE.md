@@ -1,179 +1,174 @@
-# PageFlow AI — Chrome 拡張ガイド
+# PageFlow AI — Chrome Extension Guide
 
-> **コピペ業務、ゼロへ。** 議事録→フォーム自動転記 / 領収書→経費入力 / 開発環境クリーンアップ / カレンダー自動ブロックを、Chrome 右上の 1 クリックで。
-
----
-
-## 1. インストール（1 分で完了）
-
-1. Chrome のアドレスバーに `chrome://extensions` と入力して開く
-2. 右上の **「デベロッパー モード」** を ON にする
-3. **「パッケージ化されていない拡張機能を読み込む」** をクリック
-4. このリポジトリの **`PageFlowAI` フォルダ** を選択
-5. ツールバーのパズルアイコン 🧩 から **PageFlow AI をピン留め**
-
-これだけで使い始められます。ビルドや npm install は不要です。
-
-> 💡 同梱のデモフォーム（`PageFlowAI/demo/demo_form.html`）を `file://` で開いて試す場合は、
-> `chrome://extensions` → PageFlow AI の「詳細」→ **「ファイルの URL へのアクセスを許可する」** を ON にしてください。
-> （通常の `https://` の社内システムではこの設定は不要です）
+> **Zero copy-paste at work.** Automate tedious data entry into business systems — meeting-notes-to-form transfer, expense entry, dev-environment cleanup, and calendar blocking — with a single click from the Chrome toolbar.
 
 ---
 
-## 2. 機能と使い方
+## 1. Installation (takes about a minute)
 
-### ⚡ SmartFormMapper — 議事録からフォームへ 1 クリック転記
+1. Type `chrome://extensions` into Chrome's address bar and open it
+2. Turn on **"Developer mode"** in the top-right corner
+3. Click **"Load unpacked"**
+4. Select the **`PageFlowAI` folder** from this repository
+5. Pin **PageFlow AI** from the puzzle-piece icon 🧩 in the toolbar
 
-1. 転記したいページ（Salesforce、kintone、問い合わせフォーム等）を開く
-2. PageFlow AI を開き、**「⚡ 転記」タブ**に議事録テキストを貼り付け
-   （📋 ボタンでクリップボードから貼り付け / ページ上で文章を選択して右クリック →「選択テキストを PageFlow AI に送る」でも OK）
-3. **「⚡ 自動転記する」** をクリック
+That's it — no build step, no `npm install` required.
 
-ページの `<label>` / `aria-label` / placeholder / テーブル見出しなどを DOM 解析し、
-「氏名」「会社名」「メール」「勘定科目」などの同義語辞書でフィールドを自動判別して入力します。
-入力されたフィールドは紫色にハイライトされます。React / Vue 製のフォームにも対応しています。
-
-🔍 **フォーム検出** ボタンで、ページ内のどのフィールドがどんなラベルで認識されているかを事前確認できます。
-
-#### 📋 デモ用サンプル議事録（コピーして試してください）
-
-```
-【定例ミーティング議事録】
-日時: 2026/06/10 14:00
-場所: 第3会議室
-氏名: 山田太郎
-会社名: 株式会社サンプル商事
-部署: 営業企画部
-メールアドレス: taro.yamada@example.co.jp
-電話番号: 03-1234-5678
-件名: 新製品リリースに関する定例打合せ
-決定事項: リリース日は6月20日に確定
-内容: 価格は¥49,800で据え置き。次回までに販促資料を準備する。担当は山田。
-```
-
-`PageFlowAI/demo/demo_form.html` を開いて上記を転記すると、氏名〜内容まで一括入力される様子を確認できます。
+> 💡 To try the bundled demo form (`PageFlowAI/demo/demo_form.html`) over `file://`, go to
+> `chrome://extensions` → PageFlow AI → "Details" → turn on **"Allow access to file URLs"**.
+> (This is not needed for a normal `https://` business system.)
 
 ---
 
-### 🧾 ExpensePilot — 領収書から経費精算を自動入力
+## 2. Features and usage
 
-1. **「🧾 経費」タブ**に領収書の **PDF / 画像（スクショ）** をドラッグ＆ドロップ
-2. 日付・金額・支払先・**勘定科目（自動推定）** が抽出される → 必要なら修正
-3. 経費精算画面を開いた状態で **「⚡ 経費精算フォームへ自動入力」**
+### ⚡ SmartFormMapper — one-click transfer from meeting notes to a form
 
-- **テキスト埋め込み PDF** → そのままローカルで抽出（外部送信なし）
-- **画像・スキャン PDF（日本語レシート含む）** → ⚙️ 設定タブに **Anthropic API キー** を登録すると Claude が解析
-- どちらも使えない場合 → 「テキスト貼り付け」欄にレシート文面を貼れば同じ抽出ロジックが動きます
+1. Open the page you want to fill in (Salesforce, HubSpot, an internal inquiry form, etc.)
+2. Open PageFlow AI, go to the **"⚡ Mapper" tab**, and paste your meeting-notes text
+   (use the 📋 button to paste from the clipboard, or select text on any page and right-click → "Send selected text to PageFlow AI")
+3. Click **"⚡ Autofill"**
 
-勘定科目はキーワードから自動推定します（タクシー/JR→旅費交通費、カフェ→会議費、居酒屋→接待交際費、Amazon/文具→消耗品費 など）。
-経費画面の「勘定科目」ドロップダウンは選択肢の文言と曖昧一致で自動選択されます。
+It parses the page's `<label>` / `aria-label` / placeholder / table headers, etc. via DOM analysis, and uses a synonym dictionary ("Name", "Company", "Email", "Category", ...) to match each field automatically. Filled fields are highlighted in purple. Works with React / Vue-based forms too.
 
-#### 📋 デモ用サンプルレシート（テキスト貼り付け欄で試せます）
+Use **🔍 Scan form** to preview which labels the extension detects for each field on the page before you autofill.
+
+#### 📋 Sample meeting notes for a demo (copy and try it)
 
 ```
-グリーンタクシー株式会社
-東京都港区芝公園1-2-3
-TEL 03-9999-0000
-2026年6月9日 21:45
-乗車運賃          ¥3,200
-迎車料金            ¥280
-合計             ¥3,480
-お預り           ¥5,000
-お釣り           ¥1,520
+[Weekly Sync Notes]
+Date: 2026/06/10 2:00 PM
+Location: Conference Room 3
+Name: John Smith
+Company: Acme Corporation
+Department: Sales & Planning
+Email: john.smith@example.com
+Phone: 415-555-0182
+Subject: Regular sync on the new product launch
+Decision: Launch date confirmed for June 20
+Description: Price stays at $49.80. Prepare marketing materials before the next meeting.
 ```
 
-→ 日付 `2026-06-09` / 金額 `3480`（お預り・お釣りは正しく除外）/ 勘定科目 `旅費交通費` と抽出されます。
+Open `PageFlowAI/demo/demo_form.html` and paste the text above to see every field — from Name to Description — get filled in at once.
 
 ---
 
-### 🛠 DevCleanShortcut — 開発環境をワンクリック掃除
+### 🧾 ExpensePilot — auto-fill an expense report from a receipt
 
-ポップアップのボタンから、ローカルで動く小さなエージェント（127.0.0.1:8765）を叩いて
-ポート衝突・Docker のゾンビ・古いキャッシュを一掃します。
+1. Drag and drop a receipt **PDF or image (screenshot)** into the **"🧾 Expense" tab**
+2. The date, amount, vendor, and **category (auto-inferred)** are extracted — edit if needed
+3. With your expense-report page open, click **"⚡ Autofill expense form"**
 
-**エージェントの起動（初回のみターミナルで）:**
+- **Text-based PDFs** are parsed entirely on-device (nothing is sent anywhere)
+- **Images and scanned PDFs** — add an **Anthropic API key** in the Settings tab and Claude analyzes them
+- If neither applies, paste the receipt text into "Paste receipt text" and the same parsing logic runs
+
+The category is inferred from keywords (taxi/train → Travel, cafe → Meals & Entertainment, restaurant/bar → Meals & Entertainment, Amazon/office supplies → Office Supplies, etc.). The expense form's "Category" dropdown is auto-selected by fuzzy-matching the option text.
+
+#### 📋 Sample receipt for a demo (try it in the text-paste box)
+
+```
+Green Cab Co.
+123 Market St, San Francisco, CA
+Tel 415-555-0199
+2026-06-09 9:45 PM
+Fare              $28.00
+Pickup fee          $2.50
+Total             $34.80
+Amount tendered   $50.00
+Change            $15.20
+```
+
+→ Extracts date `2026-06-09`, amount `34.8` (correctly excluding "amount tendered" / "change"), and category `Travel`.
+
+---
+
+### 🛠 DevCleanShortcut — one-click dev-environment cleanup
+
+Buttons in the popup talk to a small local agent (127.0.0.1:8765) that clears port conflicts, zombie Docker processes, and stale caches.
+
+**Start the agent (once, in a terminal):**
 
 ```bash
 python3 PageFlowAI/local-agent/pageflow_agent.py
 ```
 
-| ボタン | やること |
+| Button | What it does |
 |---|---|
-| 🔌 ポート解放 | 指定ポート（既定 3000）を掴むプロセスを `lsof` で特定して kill |
-| 🐳 Docker 掃除 | 停止済みコンテナ / dangling イメージ / 未使用ネットワーク / ビルドキャッシュを prune |
-| 🧹 キャッシュ削除 | `npm cache verify` / `yarn cache clean` / `pip3 cache purge` |
-| 🚀 全部実行 | 上記すべてを順番に実行し、結果をログ表示 |
+| 🔌 Free port | Finds whatever process is holding the given port (default 3000) via `lsof` and kills it |
+| 🐳 Clean Docker | Prunes stopped containers / dangling images / unused networks / build cache |
+| 🧹 Clear caches | Runs `npm cache verify` / `yarn cache clean` / `pip3 cache purge` |
+| 🚀 Run all | Runs everything above in sequence and shows the log |
 
-**安全設計:** エージェントは 127.0.0.1 のみにバインドし、実行できるのは上記の固定コマンドだけです（任意コマンド実行は不可）。さらに Web ページからの呼び出しは Origin チェックで 403 拒否し、`chrome-extension://` からのリクエストのみ受け付けます。
-
----
-
-### 📅 CalendarBlocker — タスクから「作業時間」を自動ブロック
-
-1. **「📅 予定」タブ**で今日のタスク名と見積もり時間（分）を入力
-2. 業務時間（既定 9:00–18:00）・昼休み・既存の予定（`10:00-11:00 定例MTG` 形式で 1 行ずつ）を設定
-3. **「🔍 空き時間を探索」** → 衝突を避けた作業ブロック案が表示される
-4. **「📅 すべてカレンダーにブロック確保」** → Google カレンダーの予定作成画面がタブで開くので、**保存を押すだけ**
-
-OAuth 設定が不要なため、Google アカウントにログインしてさえいれば誰でもすぐ使えます。
-タスクリストは自動保存され、次回ポップアップを開いたときに復元されます。
+**Safety design:** the agent binds only to 127.0.0.1 and can only execute the fixed commands listed above (no arbitrary command execution). It also rejects calls from ordinary web pages via an Origin check (HTTP 403), accepting only requests from `chrome-extension://`.
 
 ---
 
-## 3. ⚙️ AI 設定（任意・画像レシート解析に必要）
+### 📅 CalendarBlocker — auto-block "focus time" from your task list
 
-1. [Anthropic Console](https://console.anthropic.com/) で API キーを発行
-2. PageFlow AI の **⚙️ タブ** → API キーを貼り付けて保存
+1. In the **"📅 Calendar" tab**, enter today's task names and estimated time (minutes)
+2. Set your working hours (default 9:00 AM–6:00 PM), lunch break, and any existing events (one per line, e.g. `10:00-11:00 Standup`)
+3. Click **"🔍 Find free time"** → proposed work blocks that avoid conflicts are shown
+4. Click **"📅 Block all on calendar"** → Google Calendar's event-creation screen opens in tabs — just **click Save**
 
-- キーは **この端末の拡張機能ストレージ（`chrome.storage.local`）にのみ** 保存され、Anthropic API 以外には送信されません
-- 解析には `claude-opus-4-8` を使用し、JSON Schema による構造化出力で日付/金額/勘定科目を安定抽出します
-- API キー未設定でも、テキスト PDF・テキスト貼り付け・転記・開発・予定の各機能はフルに使えます
+No OAuth setup needed — as long as you're signed in to your Google account, anyone can use it right away. Your task list is saved automatically and restored the next time you open the popup.
 
 ---
 
-## 4. フォルダ構成
+## 3. ⚙️ AI settings (optional — needed for image receipt analysis)
+
+1. Get an API key from the [Anthropic Console](https://console.anthropic.com/)
+2. In PageFlow AI's **⚙️ tab**, paste the key and save
+
+- The key is stored **only in this device's extension storage (`chrome.storage.local`)** and is never sent anywhere except to the Anthropic API
+- Analysis uses `claude-opus-4-8` with structured JSON-schema output for reliable extraction of date/amount/category
+- All other features — text PDFs, pasted text, the Mapper, Dev, and Calendar tabs — work fully without an API key
+
+---
+
+## 4. Folder structure
 
 ```
-PageFlowAI/                  ← 「パッケージ化されていない拡張機能」で選ぶフォルダ
-├── manifest.json            Manifest V3 定義
-├── popup.html / popup.css   ポップアップ UI（ダークモード対応）
-├── popup.js                 4 機能のオーケストレーション
-├── parser.js                テキスト解析・スケジュール計算（Node でテスト可能）
-├── pdf_extract.js           軽量 PDF テキスト抽出（DecompressionStream 使用）
-├── content.js               DOM 解析＆自動入力（必要時のみ activeTab で注入）
-├── background.js            右クリックメニュー用 Service Worker
-├── icons/                   アイコン (16/48/128px)
-├── demo/demo_form.html      動作確認用の社内システム風フォーム
-└── local-agent/pageflow_agent.py  DevClean 用ローカルエージェント
-tests/run_tests.js           自動テスト（node tests/run_tests.js）
+PageFlowAI/                  ← the folder you select for "Load unpacked"
+├── manifest.json            Manifest V3 definition
+├── popup.html / popup.css   Popup UI (dark-mode support)
+├── popup.js                 Orchestrates the 4 features
+├── parser.js                Text parsing & schedule calculation (testable with Node)
+├── pdf_extract.js           Lightweight PDF text extraction (uses DecompressionStream)
+├── content.js                DOM parsing & autofill (injected on demand via activeTab)
+├── background.js             Service worker for the right-click context menu
+├── icons/                   Icons (16/48/128px)
+├── demo/demo_form.html       A sample business-system-style form for testing
+└── local-agent/pageflow_agent.py  Local agent for the Dev-clean feature
+tests/run_tests.js           Automated tests (node tests/run_tests.js)
 ```
 
 ---
 
-## 5. テストとセキュリティ検証
+## 5. Testing and security verification
 
 ```bash
-node tests/run_tests.js          # 25 テスト（manifest / CSP 静的検査 / 解析ロジック）
+node tests/run_tests.js          # 25 tests (manifest / CSP static checks / parsing logic)
 ```
 
-確認済みの項目:
+Verified:
 
-- ✅ Manifest V3 準拠・参照ファイル整合性
-- ✅ インラインスクリプト / インラインイベントハンドラなし（MV3 既定 CSP `script-src 'self'` に適合）
-- ✅ `eval` / `new Function` / リモートコード読み込みなし
-- ✅ 権限は最小構成（`activeTab` + 必要時注入。全サイト常駐の content_scripts は使わない）
-- ✅ 非 TLS の host 許可は `http://127.0.0.1:8765` のみ
-- ✅ ローカルエージェントは固定コマンドの許可リスト式＋Origin チェック（403）
+- ✅ Manifest V3 compliant, all referenced files exist
+- ✅ No inline scripts or inline event handlers (compatible with MV3's default `script-src 'self'` CSP)
+- ✅ No `eval` / `new Function` / remote code loading
+- ✅ Minimal permissions (`activeTab` + on-demand injection — no always-on content scripts across all sites)
+- ✅ The only non-TLS host permission is `http://127.0.0.1:8765`
+- ✅ The local agent uses an allowlist of fixed commands plus an Origin check (403)
 
 ---
 
-## 6. トラブルシューティング
+## 6. Troubleshooting
 
-| 症状 | 対処 |
+| Symptom | Fix |
 |---|---|
-| 「このページでは利用できません」 | `chrome://` やウェブストアのページでは動きません。通常の Web ページで実行してください |
-| デモフォーム(file://)で転記できない | 拡張機能の詳細設定で「ファイルの URL へのアクセスを許可する」を ON |
-| 転記されない項目がある | 「🔍 フォーム検出」でページ側のラベルを確認し、テキスト側のキー名をラベルに寄せてください |
-| 画像レシートが解析できない | ⚙️ タブで API キーを設定（または「テキスト貼り付け」を使用） |
-| 🛠 タブが「エージェント未起動」 | `python3 PageFlowAI/local-agent/pageflow_agent.py` を実行したままにする |
-| カレンダーのタブが開かない | ポップアップのブロック設定を確認。1 回の一括登録は最大 8 件です |
+| "This page is not supported" | The extension doesn't run on `chrome://` or Web Store pages. Use it on a regular web page |
+| Can't autofill the demo form (file://) | Turn on "Allow access to file URLs" in the extension's details page |
+| Some fields don't get filled | Use "🔍 Scan form" to check the labels the page exposes, and adjust the key names in your text to match |
+| Can't analyze an image receipt | Set an API key in the ⚙️ tab (or use "Paste receipt text" instead) |
+| The Dev tab shows "Agent not running" | Keep `python3 PageFlowAI/local-agent/pageflow_agent.py` running |
+| Calendar tabs don't open | Check your browser's popup-blocking settings. A single bulk booking opens at most 8 tabs |

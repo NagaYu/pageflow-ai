@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""PageFlow AI - ローカルクリーンアップエージェント
+"""PageFlow AI - local cleanup agent
 
-Chrome 拡張 PageFlow AI の「🛠 開発」タブから叩かれる小さな HTTP サーバー。
-127.0.0.1:8765 にのみバインドし、許可リスト化された定型コマンドだけを実行する
-（任意コマンドの実行は一切できない設計）。
+A small HTTP server hit by the PageFlow AI Chrome extension's "🛠 Dev" tab.
+Binds only to 127.0.0.1 and executes only a fixed allowlist of commands
+(arbitrary command execution is not possible by design).
 
-起動:
+Start:
     python3 pageflow_agent.py
 
-エンドポイント:
-    GET /health             ... 死活確認
-    GET /clean/ports?port=N ... ポート N を掴んでいるプロセスを kill
-    GET /clean/docker       ... 停止済みコンテナ/dangling イメージ/ビルドキャッシュを削除
-    GET /clean/cache        ... npm / pip / yarn のキャッシュを整理
-    GET /clean/all?port=N   ... 上記すべてを順に実行
+Endpoints:
+    GET /health             ... health check
+    GET /clean/ports?port=N ... kill whatever process is holding port N
+    GET /clean/docker       ... remove stopped containers / dangling images / build cache
+    GET /clean/cache        ... clean up npm / pip / yarn caches
+    GET /clean/all?port=N   ... run all of the above in sequence
 """
 
 import json
@@ -27,13 +27,13 @@ from urllib.parse import urlparse, parse_qs
 HOST = "127.0.0.1"
 PORT = 8765
 VERSION = "1.0.0"
-TIMEOUT = 60  # 各コマンドのタイムアウト(秒)
+TIMEOUT = 60  # timeout per command, in seconds
 
 
 def run(name, cmd):
-    """許可リスト内の固定コマンドを実行して結果 dict を返す。"""
+    """Run one fixed, allowlisted command and return a result dict."""
     if shutil.which(cmd[0]) is None:
-        return {"name": name, "ok": False, "output": f"{cmd[0]} が見つかりません（未インストール？）"}
+        return {"name": name, "ok": False, "output": f"{cmd[0]} not found (not installed?)"}
     try:
         p = subprocess.run(
             cmd, capture_output=True, text=True, timeout=TIMEOUT, check=False
@@ -41,41 +41,41 @@ def run(name, cmd):
         out = (p.stdout or "") + (p.stderr or "")
         return {"name": name, "ok": p.returncode == 0, "output": out.strip()[:2000]}
     except subprocess.TimeoutExpired:
-        return {"name": name, "ok": False, "output": f"{TIMEOUT}秒でタイムアウトしました"}
+        return {"name": name, "ok": False, "output": f"Timed out after {TIMEOUT}s"}
     except Exception as e:  # noqa: BLE001
         return {"name": name, "ok": False, "output": str(e)}
 
 
 def clean_ports(port):
-    """指定ポートを掴んでいるプロセスを特定して終了させる。"""
+    """Find whatever process is holding the given port and terminate it."""
     steps = []
-    found = run(f"ポート {port} の使用プロセスを検索", ["lsof", "-ti", f"tcp:{port}"])
+    found = run(f"Find process using port {port}", ["lsof", "-ti", f"tcp:{port}"])
     steps.append(found)
     pids = [p for p in found["output"].split() if p.isdigit()]
     if not pids:
-        steps.append({"name": f"ポート {port}", "ok": True, "output": "使用中のプロセスはありません（既にクリーン）"})
+        steps.append({"name": f"Port {port}", "ok": True, "output": "No process is using it (already clean)"})
         return steps
     for pid in pids[:20]:
-        steps.append(run(f"PID {pid} を終了", ["kill", "-9", pid]))
+        steps.append(run(f"Terminate PID {pid}", ["kill", "-9", pid]))
     return steps
 
 
 def clean_docker():
-    """ゾンビコンテナ・宙ぶらりんイメージ・ビルドキャッシュを掃除する。"""
+    """Clean up zombie containers, dangling images, and build cache."""
     return [
-        run("停止済みコンテナの削除", ["docker", "container", "prune", "-f"]),
-        run("dangling イメージの削除", ["docker", "image", "prune", "-f"]),
-        run("未使用ネットワークの削除", ["docker", "network", "prune", "-f"]),
-        run("ビルドキャッシュの削除", ["docker", "builder", "prune", "-f"]),
+        run("Remove stopped containers", ["docker", "container", "prune", "-f"]),
+        run("Remove dangling images", ["docker", "image", "prune", "-f"]),
+        run("Remove unused networks", ["docker", "network", "prune", "-f"]),
+        run("Remove build cache", ["docker", "builder", "prune", "-f"]),
     ]
 
 
 def clean_cache():
-    """各種パッケージマネージャのキャッシュを整理する。"""
+    """Tidy up various package-manager caches."""
     steps = []
-    steps.append(run("npm キャッシュ検証", ["npm", "cache", "verify"]))
-    steps.append(run("yarn キャッシュ削除", ["yarn", "cache", "clean"]))
-    steps.append(run("pip キャッシュ削除", ["pip3", "cache", "purge"]))
+    steps.append(run("Verify npm cache", ["npm", "cache", "verify"]))
+    steps.append(run("Clean yarn cache", ["yarn", "cache", "clean"]))
+    steps.append(run("Purge pip cache", ["pip3", "cache", "purge"]))
     return steps
 
 
@@ -87,7 +87,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        # 拡張機能ページからの fetch を許可（バインドは 127.0.0.1 のみ）
+        # Allow fetch() from the extension page (binding is 127.0.0.1 only)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
@@ -96,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         qs = parse_qs(url.query)
 
-        # 拡張機能以外の Web ページからの呼び出しを拒否（CSRF 対策）
+        # Reject calls from anything other than the extension (CSRF protection)
         origin = self.headers.get("Origin", "")
         if origin and not origin.startswith("chrome-extension://"):
             self._send(403, {"ok": False, "error": "forbidden origin"})
@@ -128,18 +128,18 @@ class Handler(BaseHTTPRequestHandler):
 
         self._send(200, {"ok": all(s["ok"] for s in steps), "steps": steps})
 
-    def log_message(self, fmt, *args):  # 標準ログを簡潔に
+    def log_message(self, fmt, *args):  # keep the default log terse
         sys.stderr.write("[agent] %s\n" % (fmt % args))
 
 
 def main():
     server = HTTPServer((HOST, PORT), Handler)
-    print(f"PageFlow AI ローカルエージェント v{VERSION}")
-    print(f"待ち受け: http://{HOST}:{PORT}  (Ctrl+C で終了)")
+    print(f"PageFlow AI local agent v{VERSION}")
+    print(f"Listening on http://{HOST}:{PORT}  (Ctrl+C to stop)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n終了します。")
+        print("\nStopping.")
 
 
 if __name__ == "__main__":

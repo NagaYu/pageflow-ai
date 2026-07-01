@@ -1,9 +1,10 @@
 // PageFlow AI - pdf_extract.js
-// 外部ライブラリなしの軽量 PDF テキスト抽出。
-// FlateDecode ストリームをブラウザ標準の DecompressionStream で展開し、
-// Tj / TJ オペレータのリテラル文字列を取り出す。
-// ※ CID フォント（多くの日本語 PDF）は復号できないため、その場合は
-//    空文字を返し、呼び出し側が AI 抽出 or 手入力へフォールバックする。
+// Lightweight PDF text extraction with no external libraries.
+// Inflates FlateDecode streams using the browser's built-in
+// DecompressionStream and pulls literal strings out of Tj / TJ operators.
+// Note: CID-encoded fonts (common in some scanned/embedded-font PDFs) can't
+// be decoded this way, so in that case an empty string is returned and the
+// caller falls back to AI extraction or manual entry.
 
 (function (root) {
   'use strict';
@@ -17,22 +18,22 @@
         const stream = new Blob([bytes]).stream().pipeThrough(ds);
         const buf = await new Response(stream).arrayBuffer();
         return new Uint8Array(buf);
-      } catch (e) { /* 次のフォーマットを試す */ }
+      } catch (e) { /* try the next format */ }
     }
     return null;
   }
 
-  // PDF リテラル文字列のエスケープを解決
+  // Resolve escape sequences in PDF literal strings
   function unescapePdfString(s) {
     return s
       .replace(/\\([nrtbf()\\])/g, (_, c) => ({ n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', '(': '(', ')': ')', '\\': '\\' }[c]))
       .replace(/\\(\d{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
   }
 
-  // コンテンツストリームからテキスト描画オペレータを抽出
+  // Extract text-drawing operators from a content stream
   function extractTextOps(content) {
     const out = [];
-    // (文字列) Tj   /   [(a) -120 (b)] TJ   /   (文字列) '
+    // (string) Tj   /   [(a) -120 (b)] TJ   /   (string) '
     const re = /\(((?:[^()\\]|\\.)*)\)\s*(Tj|')|\[((?:[^\]\\]|\\.)*)\]\s*TJ/g;
     let m;
     while ((m = re.exec(content)) !== null) {
@@ -47,21 +48,21 @@
         if (parts) out.push(parts);
       }
     }
-    // テキスト行の区切りオペレータごとに改行を入れる簡易処理
+    // Simple approach: join with newlines between text-drawing operators
     return out.join('\n');
   }
 
-  // 可読文字の割合（CID エンコード等で文字化けした場合の検出に使う)
+  // Ratio of readable characters (used to detect garbled CID-encoded text)
   function readableRatio(text) {
     if (!text) return 0;
-    const readable = text.match(/[0-9A-Za-z぀-ヿ一-鿿¥\/\-:., 円年月日]/g);
+    const readable = text.match(/[0-9A-Za-z$€£\/\-:., ]/g);
     return (readable ? readable.length : 0) / text.length;
   }
 
   async function extractPdfText(arrayBuffer) {
     const bytes = new Uint8Array(arrayBuffer);
     const raw = latin1.decode(bytes);
-    if (!raw.startsWith('%PDF')) throw new Error('PDF ファイルではありません');
+    if (!raw.startsWith('%PDF')) throw new Error('Not a PDF file');
 
     let result = '';
     const re = /stream\r?\n/g;
@@ -70,7 +71,7 @@
       const start = m.index + m[0].length;
       const end = raw.indexOf('endstream', start);
       if (end < 0) continue;
-      // 直前の辞書を確認（FlateDecode か非圧縮テキストのみ対象）
+      // Check the preceding dictionary (only handle FlateDecode or uncompressed text)
       const dictStart = raw.lastIndexOf('<<', m.index);
       const dict = dictStart >= 0 ? raw.slice(dictStart, m.index) : '';
       const body = bytes.subarray(start, end);
@@ -89,7 +90,7 @@
 
     result = result.trim();
     if (!result || readableRatio(result) < 0.5) {
-      // CID フォント等で復号不能 → 呼び出し側でフォールバック
+      // Undecodable (e.g. CID fonts) -> let the caller fall back
       return '';
     }
     return result;

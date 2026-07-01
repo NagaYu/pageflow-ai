@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>【デモ】社内ワークフローシステム</title>
+  <title>[Demo] Internal Workflow System</title>
   <style>
-    body { font-family: -apple-system, "Hiragino Sans", sans-serif; background: #eef1f6; margin: 0; padding: 32px; color: #1f2937; }
+    body { font-family: -apple-system, "Segoe UI", sans-serif; background: #eef1f6; margin: 0; padding: 32px; color: #1f2937; }
     .wrap { max-width: 680px; margin: 0 auto; }
     h1 { font-size: 20px; }
     .note { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
@@ -21,47 +21,47 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>社内ワークフローシステム（デモ）</h1>
-    <p class="note">PageFlow AI の動作確認用ページです。ポップアップの「⚡ 転記」「🧾 経費」から自動入力を試せます。</p>
+    <h1>Internal Workflow System (Demo)</h1>
+    <p class="note">A demo page for testing PageFlow AI. Try the autofill from the popup's "⚡ Mapper" and "🧾 Expense" tabs.</p>
 
     <div class="card">
-      <h2>議事録・問い合わせ登録</h2>
+      <h2>Meeting Notes / Inquiry Registration</h2>
       <table>
-        <tr><th><label for="f-name">氏名</label></th><td><input type="text" id="f-name" name="name"></td></tr>
-        <tr><th><label for="f-company">会社名</label></th><td><input type="text" id="f-company" name="company"></td></tr>
-        <tr><th><label for="f-dept">部署</label></th><td><input type="text" id="f-dept" name="department"></td></tr>
-        <tr><th><label for="f-email">メールアドレス</label></th><td><input type="email" id="f-email" name="email"></td></tr>
-        <tr><th><label for="f-tel">電話番号</label></th><td><input type="tel" id="f-tel" name="tel"></td></tr>
-        <tr><th><label for="f-subject">件名</label></th><td><input type="text" id="f-subject" name="subject"></td></tr>
-        <tr><th><label for="f-body">内容</label></th><td><textarea id="f-body" name="body"></textarea></td></tr>
+        <tr><th><label for="f-name">Name</label></th><td><input type="text" id="f-name" name="name"></td></tr>
+        <tr><th><label for="f-company">Company</label></th><td><input type="text" id="f-company" name="company"></td></tr>
+        <tr><th><label for="f-dept">Department</label></th><td><input type="text" id="f-dept" name="department"></td></tr>
+        <tr><th><label for="f-email">Email</label></th><td><input type="email" id="f-email" name="email"></td></tr>
+        <tr><th><label for="f-tel">Phone</label></th><td><input type="tel" id="f-tel" name="tel"></td></tr>
+        <tr><th><label for="f-subject">Subject</label></th><td><input type="text" id="f-subject" name="subject"></td></tr>
+        <tr><th><label for="f-body">Description</label></th><td><textarea id="f-body" name="body"></textarea></td></tr>
       </table>
     </div>
 
     <div class="card">
-      <h2>経費精算 申請</h2>
+      <h2>Expense Report</h2>
       <table>
-        <tr><th><label for="e-date">利用日</label></th><td><input type="date" id="e-date" name="expense_date"></td></tr>
-        <tr><th><label for="e-amount">金額</label></th><td><input type="number" id="e-amount" name="amount"></td></tr>
-        <tr><th><label for="e-vendor">支払先</label></th><td><input type="text" id="e-vendor" name="vendor"></td></tr>
-        <tr><th><label for="e-category">勘定科目</label></th><td>
+        <tr><th><label for="e-date">Date</label></th><td><input type="date" id="e-date" name="expense_date"></td></tr>
+        <tr><th><label for="e-amount">Amount</label></th><td><input type="number" step="0.01" id="e-amount" name="amount"></td></tr>
+        <tr><th><label for="e-vendor">Vendor</label></th><td><input type="text" id="e-vendor" name="vendor"></td></tr>
+        <tr><th><label for="e-category">Category</label></th><td>
           <select id="e-category" name="category">
-            <option value="">選択してください</option>
-            <option>旅費交通費</option>
-            <option>会議費</option>
-            <option>接待交際費</option>
-            <option>消耗品費</option>
-            <option>通信費</option>
-            <option>新聞図書費</option>
-            <option>水道光熱費</option>
-            <option>地代家賃</option>
-            <option>雑費</option>
+            <option value="">Please select</option>
+            <option>Travel</option>
+            <option>Meals &amp; Entertainment</option>
+            <option>Office Supplies</option>
+            <option>Books &amp; Subscriptions</option>
+            <option>Communications</option>
+            <option>Utilities</option>
+            <option>Software &amp; Subscriptions</option>
+            <option>Lodging</option>
+            <option>Miscellaneous</option>
           </select>
         </td></tr>
-        <tr><th><label for="e-memo">備考</label></th><td><input type="text" id="e-memo" name="memo"></td></tr>
+        <tr><th><label for="e-memo">Memo</label></th><td><input type="text" id="e-memo" name="memo"></td></tr>
       </table>
     </div>
 
-    <button type="button">申請する（デモのため何も起きません）</button>
+    <button type="button">Submit (this demo button does nothing)</button>
   </div>
 </body>
 </html>

@@ -1,12 +1,12 @@
 // PageFlow AI - Service Worker (Manifest V3)
-// 右クリックメニュー「選択テキストを PageFlow AI に送る」を提供する。
-// 選択テキストは storage に保存され、次回ポップアップを開いたときに
-// SmartFormMapper のテキスト欄へ自動でセットされる。
+// Provides the "Send selected text to PageFlow AI" context-menu item.
+// The selected text is saved to storage and automatically loaded into
+// the SmartFormMapper text field the next time the popup is opened.
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'pfa-send-selection',
-    title: '選択テキストを PageFlow AI に送る',
+    title: 'Send selected text to PageFlow AI',
     contexts: ['selection']
   });
 });
@@ -19,7 +19,7 @@ chrome.contextMenus.onClicked.addListener((info) => {
   }
 });
 
-// ポップアップ側がテキストを取り込んだらバッジを消す
+// Clear the badge once the popup has picked up the pending text
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg && msg.type === 'PFA_CLEAR_BADGE') {
     chrome.action.setBadgeText({ text: '' });

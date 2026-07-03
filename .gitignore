@@ -13,6 +13,6 @@ node_modules/
 .idea/
 *.swp
 
-# Local secrets (念のため。本リポジトリにキーは含めない設計)
+# Local secrets (just in case — no keys are meant to live in this repo)
 *.key
 .env
